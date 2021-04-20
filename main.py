@@ -29,19 +29,44 @@ if (vid.isOpened()== False):
      print("Error opening video stream or file")
 
 while True:
-    # Capture the video frame
-    # by frame
-    ret, frame = vid.read()
-    print(frame)
+    # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
+    ret, image_np = vid.read()
+    # image_np = cv2.flip(image_np, 1)
+    try:
+        image_np = cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)
+    except:
+        print("Error converting to RGB")
 
-    # Display the resulting frame
-    cv2.imshow('frame', frame)
+    # Actual detection. Variable boxes contains the bounding box cordinates for hands detected,
+    # while scores contains the confidence for each of these boxes.
+    # Hint: If len(boxes) > 1 , you may assume you have found atleast one hand (within your score threshold)
 
-    # the 'q' button is set as the
-    # quitting button you may use any
-    # desired button of your choice
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+    boxes, scores = detector_utils.detect_objects(image_np,
+                                                  detection_graph, sess)
 
+    # draw bounding boxes on frame
+    hand_detector.draw_box_on_image(num_hands_detect, score_thresh,
+                                     scores, boxes, im_width, im_height,
+                                     image_np)
+
+    # Calculate Frames per second (FPS)
+    num_frames += 1
+    elapsed_time = (datetime.datetime.now() - start_time).total_seconds()
+    fps = num_frames / elapsed_time
+
+    if (args.display > 0):
+        # Display FPS on frame
+        hand_detector.draw_fps_on_image("FPS : " + str(int(fps)),
+                                             image_np)
+
+        cv2.imshow('Single-Threaded Detection',
+                   cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR))
+
+        if cv2.waitKey(25) & 0xFF == ord('q'):
+            cv2.destroyAllWindows()
+            break
+    else:
+        print("frames processed: ", num_frames, "elapsed time: ",
+              elapsed_time, "fps: ", str(int(fps)))
 vid.release()
 cv2.destroyAllWindows()
