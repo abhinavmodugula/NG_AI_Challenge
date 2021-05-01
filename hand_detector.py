@@ -52,7 +52,9 @@ def load_inference_graph():
 
 # draw the detected bounding boxes on the images
 # You can modify this to also draw a label.
+#return the centers of all boxes drawn
 def draw_box_on_image(num_hands_detect, score_thresh, scores, boxes, im_width, im_height, image_np):
+    centers = []
     for i in range(num_hands_detect):
         if (scores[i] > score_thresh):
             (left, right, top, bottom) = (boxes[i][1] * im_width, boxes[i][3] * im_width,
@@ -60,9 +62,21 @@ def draw_box_on_image(num_hands_detect, score_thresh, scores, boxes, im_width, i
             p1 = (int(left), int(top))
             p2 = (int(right), int(bottom))
             cv2.rectangle(image_np, p1, p2, (77, 255, 9), 3, 1)
+            
+            c_x = ((p2[0] - p1[0]) / 2) + p1[0]
+            c_y = (p2[1] - p1[1]) / 2 + p1[1]
+            center = (int(c_x), int(c_y))
+            centers.append(center)
+            
+            """
             print("Detected hand")
             r = [p1, p2]
             print(r)
+            
+            print("Center of hand: ")
+            print(center)
+            """
+    return centers
 
 
 # Show fps value on image.

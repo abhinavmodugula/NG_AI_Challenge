@@ -29,6 +29,16 @@ def get_center(box, im_width, im_height):
     c_y = (p2[0] - p1[1]) / 2
     center = (int(c_y), int(c_x))
     return center
+
+def point_in_roi(point, roi):
+    """
+    Returns whether point (x, y) is in a roi
+    
+    """
+    if (point[0] < roi[2] and point[0] > roi[0]):
+        if (point[1] < roi[3] and point[1] > roi[1]):
+            return True
+    return False
     
 
 detection_graph, sess = hand_detector.load_inference_graph()
@@ -56,8 +66,23 @@ num_hands_detect = 4
 first = True #if first frame
 region = None
 
+camera_adjust_frames = 200
+
 if (vid.isOpened()== False):
      print("Error opening video stream or file")
+
+"""
+DOES NOT WORK AT THE MOMENT
+while True:
+    camera_adjust_frames -= 1
+    ret, image_np = vid.read()
+    cv2.imshow('Adjust Camera',
+                   cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR))
+    if camera_adjust_frames == 0:
+        cv2.destroyAllWindows()
+        break
+"""
+    
 
 while True:
     # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
@@ -67,6 +92,7 @@ while True:
         image_np = cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)
     except:
         print("Error converting to RGB")
+        
     
     #if first frame, let user select region to monitor
     if first:
@@ -81,20 +107,17 @@ while True:
     boxes, scores = hand_detector.detect_objects(image_np,
                                                   detection_graph, sess)
     
-    # See if any hands are in the region of interest
-    for i in range(num_hands_detect):
-        if scores[i] > score_thresh:
-            box = boxes[i]
-            #draw center to test
-            center = get_center(box, im_width, im_height)
-            print("Hand center")
-            print(center)
-            cv2.circle(image_np, center, radius=2, color=(0, 0, 255), thickness=4)
 
     # draw bounding boxes on frame
-    hand_detector.draw_box_on_image(num_hands_detect, score_thresh,
+    centers = hand_detector.draw_box_on_image(num_hands_detect, score_thresh,
                                      scores, boxes, im_width, im_height,
                                      image_np)
+    for center in centers:
+        cv2.circle(image_np, center, 20, (0, 0, 255), 10)
+        #see if the any center is in the roi
+        if (point_in_roi(center, region)):
+            print("Hand in region!!!")
+        
     
     cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (255, 0, 0), 2)
 
