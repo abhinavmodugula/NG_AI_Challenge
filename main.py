@@ -2,15 +2,16 @@ import datetime
 import cv2
 import numpy as np
 import hand_detector
+import time
 
 def select_roi(img):
     """
     Allows the user to select which areas of the image to
     monitor
     """
-    r = cv2.selectROI("Select region", img, False, False)
+    rs = cv2.selectROIs("Select region", img, False, False)
     
-    region = [r[0], r[1], r[0]+r[2], r[1]+r[3]]
+    region = [[r[0], r[1], r[0]+r[2], r[1]+r[3]] for r in rs]
     
     #cv2.rectangle(img, (r[0], r[1]), (r[2]+r[0], r[3]+r[1]), (255, 0, 0), 2)
     
@@ -64,7 +65,7 @@ im_width, im_height = (vid.get(3), vid.get(4))
 # max number of hands we want to detect/track
 num_hands_detect = 4
 first = True #if first frame
-region = None
+regions = None
 
 camera_adjust_frames = 200
 
@@ -82,6 +83,9 @@ while True:
         cv2.destroyAllWindows()
         break
 """
+
+touch_map = {}
+THRESHOLD = 5  # number of seconds after which touches don't count anymore
     
 
 while True:
@@ -97,7 +101,9 @@ while True:
     #if first frame, let user select region to monitor
     if first:
         first = False
-        region = select_roi(image_np)
+        regions = select_roi(image_np)
+        for i in range(len(regions)):
+            touch_map[i] = THRESHOLD + 1
     
 
     # Actual detection. Variable boxes contains the bounding box cordinates for hands detected,
@@ -112,14 +118,19 @@ while True:
     centers = hand_detector.draw_box_on_image(num_hands_detect, score_thresh,
                                      scores, boxes, im_width, im_height,
                                      image_np)
-    for center in centers:
-        cv2.circle(image_np, center, 20, (0, 0, 255), 10)
-        #see if the any center is in the roi
-        if (point_in_roi(center, region)):
-            print("Hand in region!!!")
-        
-    
-    cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (255, 0, 0), 2)
+
+    n = time.time()
+    for i, region in enumerate(regions):
+        for center in centers:
+            cv2.circle(image_np, center, 20, (0, 0, 255), 10)
+            if (point_in_roi(center, region)):
+                # print(f"Hand in region {i}!!!")
+                touch_map[i] = n
+
+        t = int(((n - touch_map[i]) / THRESHOLD) * 255)
+        if t > 255:
+            t = 255
+        cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (255 - t, t, 0), -1)
 
     # Calculate Frames per second (FPS)
     num_frames += 1
