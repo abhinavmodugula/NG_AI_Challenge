@@ -54,8 +54,8 @@ num_workers = 4
 queue_size = 5
 
 vid = cv2.VideoCapture(0)
-vid.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-vid.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+# vid.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+# vid.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
 start_time = datetime.datetime.now()
 num_frames = 0
