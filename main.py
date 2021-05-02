@@ -120,6 +120,7 @@ while True:
                                      image_np)
 
     n = time.time()
+    overlay = image_np.copy()
     for i, region in enumerate(regions):
         for center in centers:
             cv2.circle(image_np, center, 20, (0, 0, 255), 10)
@@ -130,7 +131,14 @@ while True:
         t = int(((n - touch_map[i]) / THRESHOLD) * 255)
         if t > 255:
             t = 255
-        cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (255 - t, t, 0), -1)
+        r = min(region[2] - region[0], region[3] - region[1]) // 4  # circle only fills half of the region
+
+        # cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (255 - t, t, 0), -1)
+        cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (0, 0, 255), 2)
+        cv2.circle(overlay, ((region[0] + region[2]) // 2, (region[1] + region[3]) // 2), r, (255 - t, t, 0), -1)
+
+    alpha = 0.4
+    image_np = cv2.addWeighted(overlay, alpha, image_np, 1 - alpha, 0)
 
     # Calculate Frames per second (FPS)
     num_frames += 1
