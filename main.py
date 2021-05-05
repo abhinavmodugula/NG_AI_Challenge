@@ -164,11 +164,12 @@ while True:
         t = int(((n - touch_map[i]) / THRESHOLD) * 255)
         if t > 255:
             t = 255
-        r = 50  # min(region[2] - region[0], region[3] - region[1]) // 4  # circle only fills half of the region
+        r = int(region.length // 8)  # min(region[2] - region[0], region[3] - region[1]) // 4  # circle only fills half of the region
 
         # cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (255 - t, t, 0), -1)
         # cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (0, 0, 255), 2)
-        # cv2.circle(overlay, ((region[0] + region[2]) // 2, (region[1] + region[3]) // 2), r, (255 - t, t, 0), -1)
+        p = region.centroid
+        cv2.circle(overlay, (int(p.x), int(p.y)), r, (255 - t, t, 0), -1)
         draw_region(image_np, ir)
 
     alpha = 0.4
