@@ -1,7 +1,6 @@
 import datetime
 import cv2
-import numpy as np
-import hand_detector
+import mediapipe as mp
 import time
 
 from shapely.geometry import Point
@@ -11,6 +10,9 @@ global regions, touch_map, touches, intregions
 regions = []
 intregions = []
 touch_map = {}
+
+mp_drawing = mp.solutions.drawing_utils
+mp_hands = mp.solutions.hands
 
 W_NAME = "Single-Threaded Detection"
 
@@ -69,17 +71,6 @@ def draw_region(image, region):
     cv2.line(image, r[2], r[3], (0, 0, 255), 2)
     cv2.line(image, r[3], r[0], (0, 0, 255), 2)
 
-detection_graph, sess = hand_detector.load_inference_graph()
-
-#Args:
-fps = 1
-score_thresh = 0.2
-video_source = 0 #device camera
-width = 1520
-height = 580
-display = 1
-num_workers = 4
-queue_size = 5
 
 # cv2.namedWindow("app")
 vid = cv2.VideoCapture(0)
@@ -96,104 +87,113 @@ first = True #if first frame
 # regions = None
 
 camera_adjust_frames = 200
-
-if (vid.isOpened()== False):
-     print("Error opening video stream or file")
-
-"""
-DOES NOT WORK AT THE MOMENT
-while True:
-    camera_adjust_frames -= 1
-    ret, image_np = vid.read()
-    cv2.imshow('Adjust Camera',
-                   cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR))
-    if camera_adjust_frames == 0:
-        cv2.destroyAllWindows()
-        break
-"""
-
+#
 cv2.namedWindow(W_NAME)
 
-THRESHOLD = 5  # number of seconds after which touches don't count anymore
+THRESHOLD = 25  # number of seconds after which touches don't count anymore
 
-while True:
-    # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
-    ret, image_np = vid.read()
-    # image_np = cv2.flip(image_np, 1)
-    try:
-        image_np = cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)
-    except:
-        print("Error converting to RGB")
-    
-    #if first frame, let user select region to monitor
-    if first:
-        first = False
-        start_select_roi(image_np)
-    #     regions = select_roi(image_np)
-    #     for i in range(len(regions)):
-    #         touch_map[i] = THRESHOLD + 1
-    
+with open("points.txt", "w") as file:
+    with mp_hands.Hands(
+          static_image_mode=True,
+          max_num_hands=2,
+          min_detection_confidence=0.5) as hands:
+        while vid.isOpened():
+            # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
+            ret, image_np = vid.read()
+            # image_np = cv2.flip(image_np, 1)
+            try:
+                image_np = cv2.cvtColor(cv2.flip(image_np, 1), cv2.COLOR_BGR2RGB)
+            except:
+                print("Error converting to RGB")
 
-    # Actual detection. Variable boxes contains the bounding box cordinates for hands detected,
-    # while scores contains the confidence for each of these boxes.
-    # Hint: If len(boxes) > 1 , you may assume you have found atleast one hand (within your score threshold)
+            if not ret:
+                print("tijoo")
+                continue
 
-    boxes, scores = hand_detector.detect_objects(image_np,
-                                                  detection_graph, sess)
-    
+            #if first frame, let user select region to monitor
+            if first:
+                first = False
+                start_select_roi(image_np)
+                # regions = select_roi(image_np)
+                # for i in range(len(regions)):
+                #     touch_map[i] = THRESHOLD + 1
 
-    # draw bounding boxes on frame
-    centers = hand_detector.draw_box_on_image(num_hands_detect, score_thresh,
-                                     scores, boxes, im_width, im_height,
-                                     image_np)
 
-    for i in touches:
-        if len(i) != 4:
-            for (a, b) in zip(i, i[1:]):
-                cv2.line(image_np, (int(a.x), int(a.y)), (int(b.x), int(b.y)), (255, 0, 0), 2)
+            # Actual detection. Variable boxes contains the bounding box cordinates for hands detected,
+            # while scores contains the confidence for each of these boxes.
+            # Hint: If len(boxes) > 1 , you may assume you have found atleast one hand (within your score threshold)
 
-    n = time.time()
-    overlay = image_np.copy()
-    for i, (ir, region) in enumerate(zip(intregions, regions)):
-        for center in centers:
-            cv2.circle(image_np, center, 20, (0, 0, 255), 10)
-            if (point_in_roi(Point(center), region)):
-                print(f"Hand in region {i}!!!")
-                touch_map[i] = n
+            # boxes, scores = hand_detector.detect_objects(image_np,
+            #                                               detection_graph, sess)
+            #
+            #
+            # # draw bounding boxes on frame
+            # centers = hand_detector.draw_box_on_image(num_hands_detect, score_thresh,
+            #                                  scores, boxes, im_width, im_height,
+            #                                  image_np)
+            # print(touches)
+            # print(regions)
+            image_np.flags.writeable = False
+            result = hands.process(image_np)
+            image_np.flags.writeable = True
 
-        t = int(((n - touch_map[i]) / THRESHOLD) * 255)
-        if t > 255:
-            t = 255
-        r = int(region.length // 8)  # min(region[2] - region[0], region[3] - region[1]) // 4  # circle only fills half of the region
+            for i in touches:
+                if len(i) != 4:
+                    for (a, b) in zip(i, i[1:]):
+                        cv2.line(image_np, (int(a.x), int(a.y)), (int(b.x), int(b.y)), (255, 0, 0), 2)
 
-        # cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (255 - t, t, 0), -1)
-        # cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (0, 0, 255), 2)
-        p = region.centroid
-        cv2.circle(overlay, (int(p.x), int(p.y)), r, (255 - t, t, 0), -1)
-        draw_region(image_np, ir)
+            if result.multi_hand_landmarks:
+                for hand_landmarks in result.multi_hand_landmarks:
+                    mp_drawing.draw_landmarks(
+                        image_np, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
-    alpha = 0.4
-    image_np = cv2.addWeighted(overlay, alpha, image_np, 1 - alpha, 0)
+            n = time.time()
+            overlay = image_np.copy()
+            for i, (ir, region) in enumerate(zip(intregions, regions)):
+                if result.multi_hand_landmarks:
+                    for r in result.multi_hand_landmarks:
+                        c = r.landmark[9]
+                        center = (int(c.x * im_width), int(c.y * im_height))
+                        print(center)
+                        cv2.circle(image_np, center, 20, (0, 0, 255), 10)
+                        if (point_in_roi(Point(center), region)):
+                            print(f"Hand in region {i}!!!")
+                            touch_map[i] = n
+                            file.write(f"{center}\n")
 
-    # Calculate Frames per second (FPS)
-    num_frames += 1
-    elapsed_time = (datetime.datetime.now() - start_time).total_seconds()
-    fps = num_frames / elapsed_time
+                t = int(((n - touch_map[i]) / THRESHOLD) * 255)
+                if t > 255:
+                    t = 255
+                r = int(region.length // 12)  # min(region[2] - region[0], region[3] - region[1]) // 4  # circle only fills half of the region
 
-    if (fps > 0):
-        # Display FPS on frame
-        hand_detector.draw_fps_on_image("FPS : " + str(int(fps)),
-                                        image_np)
+                # cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (255 - t, t, 0), -1)
+                # cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (0, 0, 255), 2)
+                p = region.centroid
+                cv2.circle(overlay, (int(p.x), int(p.y)), r, (255 - t, t, 0), -1)
+                draw_region(image_np, ir)
 
-        cv2.imshow(W_NAME,
-                   cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR))
+            alpha = 0.4
+            image_np = cv2.addWeighted(overlay, alpha, image_np, 1 - alpha, 0)
+            #
+            # # Calculate Frames per second (FPS)
+            # num_frames += 1
+            # elapsed_time = (datetime.datetime.now() - start_time).total_seconds()
+            # fps = num_frames / elapsed_time
 
-        if cv2.waitKey(25) & 0xFF == ord('q'):
-            cv2.destroyAllWindows()
-            break
-    else:
-        print("frames processed: ", num_frames, "elapsed time: ",
-              elapsed_time, "fps: ", str(int(fps)))
+            # if (fps > 0):
+                # Display FPS on frame
+                # hand_detector.draw_fps_on_image("FPS : " + str(int(fps)),
+                #                                 image_np)
 
-vid.release()
-cv2.destroyAllWindows()
+            cv2.imshow(W_NAME,
+                       cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR))
+
+            if cv2.waitKey(25) & 0xFF == ord('q'):
+                cv2.destroyAllWindows()
+                break
+            # else:
+                # print("frames processed: ", num_frames, "elapsed time: ",
+                #       elapsed_time, "fps: ", str(int(fps)))
+
+        vid.release()
+        cv2.destroyAllWindows()
