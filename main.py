@@ -92,7 +92,7 @@ cv2.namedWindow(W_NAME)
 
 THRESHOLD = 25  # number of seconds after which touches don't count anymore
 
-with open("points.txt", "w") as file:
+with open("points2.txt", "w") as file:
     with mp_hands.Hands(
           static_image_mode=True,
           max_num_hands=2,
