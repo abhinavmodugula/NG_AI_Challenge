@@ -4,21 +4,36 @@ import numpy as np
 import hand_detector
 import time
 
-def select_roi(img):
+global regions, touch_map, touches
+regions = []
+touch_map = {}
+
+W_NAME = "Single-Threaded Detection"
+
+def start_select_roi(img):
     """
     Allows the user to select which areas of the image to
     monitor
     """
-    rs = cv2.selectROIs("Select region", img, False, False)
-    
-    region = [[r[0], r[1], r[0]+r[2], r[1]+r[3]] for r in rs]
-    
-    #cv2.rectangle(img, (r[0], r[1]), (r[2]+r[0], r[3]+r[1]), (255, 0, 0), 2)
-    
-    
-    cv2.waitKey(0)
-    
-    return region
+    global touches
+    touches = []
+
+    def mouse_fn(event, x, y, flags, param):
+        global regions, touch_map
+
+        if event != 1:
+            return
+
+        if len(touches) == 0 or len(touches[-1]) == 4:
+            touches.append([(x, y)])
+        else:
+            touches[-1].append((x, y))
+
+        if len(touches[-1]) == 4:
+            regions.append(touches[-1])
+            touch_map[len(regions) - 1] = THRESHOLD + 1
+
+    cv2.setMouseCallback(W_NAME, mouse_fn)
 
 def get_center(box, im_width, im_height):
     #takes the output of the hand detection model and returns the center
@@ -40,7 +55,12 @@ def point_in_roi(point, roi):
         if (point[1] < roi[3] and point[1] > roi[1]):
             return True
     return False
-    
+
+def draw_region(image, region):
+    cv2.line(image, region[0], region[1], (0, 0, 255), 2)
+    cv2.line(image, region[1], region[2], (0, 0, 255), 2)
+    cv2.line(image, region[2], region[3], (0, 0, 255), 2)
+    cv2.line(image, region[3], region[0], (0, 0, 255), 2)
 
 detection_graph, sess = hand_detector.load_inference_graph()
 
@@ -54,6 +74,7 @@ display = 1
 num_workers = 4
 queue_size = 5
 
+# cv2.namedWindow("app")
 vid = cv2.VideoCapture(0)
 # vid.set(cv2.CAP_PROP_FRAME_WIDTH, width)
 # vid.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -65,7 +86,7 @@ im_width, im_height = (vid.get(3), vid.get(4))
 # max number of hands we want to detect/track
 num_hands_detect = 4
 first = True #if first frame
-regions = None
+# regions = None
 
 camera_adjust_frames = 200
 
@@ -84,9 +105,9 @@ while True:
         break
 """
 
-touch_map = {}
+cv2.namedWindow(W_NAME)
+
 THRESHOLD = 5  # number of seconds after which touches don't count anymore
-    
 
 while True:
     # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
@@ -96,14 +117,14 @@ while True:
         image_np = cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)
     except:
         print("Error converting to RGB")
-        
     
     #if first frame, let user select region to monitor
     if first:
         first = False
-        regions = select_roi(image_np)
-        for i in range(len(regions)):
-            touch_map[i] = THRESHOLD + 1
+        start_select_roi(image_np)
+    #     regions = select_roi(image_np)
+    #     for i in range(len(regions)):
+    #         touch_map[i] = THRESHOLD + 1
     
 
     # Actual detection. Variable boxes contains the bounding box cordinates for hands detected,
@@ -119,23 +140,29 @@ while True:
                                      scores, boxes, im_width, im_height,
                                      image_np)
 
+    for i in touches:
+        if len(i) != 4:
+            for (a, b) in zip(i, i[1:]):
+                cv2.line(image_np, a, b, (255, 0, 0), 2)
+
     n = time.time()
     overlay = image_np.copy()
     for i, region in enumerate(regions):
-        for center in centers:
-            cv2.circle(image_np, center, 20, (0, 0, 255), 10)
-            if (point_in_roi(center, region)):
-                # print(f"Hand in region {i}!!!")
-                touch_map[i] = n
+        # for center in centers:
+        #     cv2.circle(image_np, center, 20, (0, 0, 255), 10)
+        #     if (point_in_roi(center, region)):
+        #         print(f"Hand in region {i}!!!")
+                # touch_map[i] = n
 
         t = int(((n - touch_map[i]) / THRESHOLD) * 255)
         if t > 255:
             t = 255
-        r = min(region[2] - region[0], region[3] - region[1]) // 4  # circle only fills half of the region
+        r = 50  # min(region[2] - region[0], region[3] - region[1]) // 4  # circle only fills half of the region
 
         # cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (255 - t, t, 0), -1)
-        cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (0, 0, 255), 2)
-        cv2.circle(overlay, ((region[0] + region[2]) // 2, (region[1] + region[3]) // 2), r, (255 - t, t, 0), -1)
+        # cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (0, 0, 255), 2)
+        # cv2.circle(overlay, ((region[0] + region[2]) // 2, (region[1] + region[3]) // 2), r, (255 - t, t, 0), -1)
+        draw_region(image_np, region)
 
     alpha = 0.4
     image_np = cv2.addWeighted(overlay, alpha, image_np, 1 - alpha, 0)
@@ -148,9 +175,9 @@ while True:
     if (fps > 0):
         # Display FPS on frame
         hand_detector.draw_fps_on_image("FPS : " + str(int(fps)),
-                                             image_np)
+                                        image_np)
 
-        cv2.imshow('Single-Threaded Detection',
+        cv2.imshow(W_NAME,
                    cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR))
 
         if cv2.waitKey(25) & 0xFF == ord('q'):
@@ -159,5 +186,6 @@ while True:
     else:
         print("frames processed: ", num_frames, "elapsed time: ",
               elapsed_time, "fps: ", str(int(fps)))
+
 vid.release()
 cv2.destroyAllWindows()
