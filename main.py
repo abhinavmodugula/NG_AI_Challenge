@@ -4,8 +4,12 @@ import numpy as np
 import hand_detector
 import time
 
-global regions, touch_map, touches
+from shapely.geometry import Point
+from shapely.geometry.polygon import Polygon
+
+global regions, touch_map, touches, intregions
 regions = []
+intregions = []
 touch_map = {}
 
 W_NAME = "Single-Threaded Detection"
@@ -25,12 +29,13 @@ def start_select_roi(img):
             return
 
         if len(touches) == 0 or len(touches[-1]) == 4:
-            touches.append([(x, y)])
+            touches.append([Point(x, y)])
         else:
-            touches[-1].append((x, y))
+            touches[-1].append(Point(x, y))
 
         if len(touches[-1]) == 4:
-            regions.append(touches[-1])
+            regions.append(Polygon(touches[-1]))
+            intregions.append([(int(i.x), int(i.y)) for i in touches[-1]])
             touch_map[len(regions) - 1] = THRESHOLD + 1
 
     cv2.setMouseCallback(W_NAME, mouse_fn)
@@ -51,16 +56,18 @@ def point_in_roi(point, roi):
     Returns whether point (x, y) is in a roi
     
     """
-    if (point[0] < roi[2] and point[0] > roi[0]):
-        if (point[1] < roi[3] and point[1] > roi[1]):
-            return True
-    return False
+    return roi.contains(point)
+    # if (point[0] < roi[2] and point[0] > roi[0]):
+    #     if (point[1] < roi[3] and point[1] > roi[1]):
+    #         return True
+    # return False
 
 def draw_region(image, region):
-    cv2.line(image, region[0], region[1], (0, 0, 255), 2)
-    cv2.line(image, region[1], region[2], (0, 0, 255), 2)
-    cv2.line(image, region[2], region[3], (0, 0, 255), 2)
-    cv2.line(image, region[3], region[0], (0, 0, 255), 2)
+    r = region
+    cv2.line(image, r[0], r[1], (0, 0, 255), 2)
+    cv2.line(image, r[1], r[2], (0, 0, 255), 2)
+    cv2.line(image, r[2], r[3], (0, 0, 255), 2)
+    cv2.line(image, r[3], r[0], (0, 0, 255), 2)
 
 detection_graph, sess = hand_detector.load_inference_graph()
 
@@ -143,16 +150,16 @@ while True:
     for i in touches:
         if len(i) != 4:
             for (a, b) in zip(i, i[1:]):
-                cv2.line(image_np, a, b, (255, 0, 0), 2)
+                cv2.line(image_np, (int(a.x), int(a.y)), (int(b.x), int(b.y)), (255, 0, 0), 2)
 
     n = time.time()
     overlay = image_np.copy()
-    for i, region in enumerate(regions):
-        # for center in centers:
-        #     cv2.circle(image_np, center, 20, (0, 0, 255), 10)
-        #     if (point_in_roi(center, region)):
-        #         print(f"Hand in region {i}!!!")
-                # touch_map[i] = n
+    for i, (ir, region) in enumerate(zip(intregions, regions)):
+        for center in centers:
+            cv2.circle(image_np, center, 20, (0, 0, 255), 10)
+            if (point_in_roi(Point(center), region)):
+                print(f"Hand in region {i}!!!")
+                touch_map[i] = n
 
         t = int(((n - touch_map[i]) / THRESHOLD) * 255)
         if t > 255:
@@ -162,7 +169,7 @@ while True:
         # cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (255 - t, t, 0), -1)
         # cv2.rectangle(image_np, (region[0], region[1]), (region[2], region[3]), (0, 0, 255), 2)
         # cv2.circle(overlay, ((region[0] + region[2]) // 2, (region[1] + region[3]) // 2), r, (255 - t, t, 0), -1)
-        draw_region(image_np, region)
+        draw_region(image_np, ir)
 
     alpha = 0.4
     image_np = cv2.addWeighted(overlay, alpha, image_np, 1 - alpha, 0)
