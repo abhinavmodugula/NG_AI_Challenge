@@ -27,15 +27,16 @@ def start_select_roi(img):
     def mouse_fn(event, x, y, flags, param):
         global regions, touch_map
 
-        if event != 1:
+        if event != 1:  # left mouse button
             return
 
+        # no previous touches or last touch is full? add a new touch
         if len(touches) == 0 or len(touches[-1]) == 4:
             touches.append([Point(x, y)])
-        else:
+        else:  # continue last touch
             touches[-1].append(Point(x, y))
 
-        if len(touches[-1]) == 4:
+        if len(touches[-1]) == 4:  # add touch to regions
             regions.append(Polygon(touches[-1]))
             intregions.append([(int(i.x), int(i.y)) for i in touches[-1]])
             touch_map[len(regions) - 1] = THRESHOLD + 1
@@ -64,7 +65,7 @@ def point_in_roi(point, roi):
     #         return True
     # return False
 
-def draw_region(image, region):
+def draw_region(image, region):  # draws a region on the screen
     r = region
     cv2.line(image, r[0], r[1], (0, 0, 255), 2)
     cv2.line(image, r[1], r[2], (0, 0, 255), 2)
@@ -138,7 +139,7 @@ with open("points2.txt", "w") as file:
             image_np.flags.writeable = True
 
             for i in touches:
-                if len(i) != 4:
+                if len(i) != 4:  # draw the regions that are currently being created in red
                     for (a, b) in zip(i, i[1:]):
                         cv2.line(image_np, (int(a.x), int(a.y)), (int(b.x), int(b.y)), (255, 0, 0), 2)
 
@@ -150,7 +151,7 @@ with open("points2.txt", "w") as file:
             n = time.time()
             overlay = image_np.copy()
             for i, (ir, region) in enumerate(zip(intregions, regions)):
-                if result.multi_hand_landmarks:
+                if result.multi_hand_landmarks: # for each region, for each hand, check if it's in the region
                     for r in result.multi_hand_landmarks:
                         c = r.landmark[9]
                         center = (int(c.x * im_width), int(c.y * im_height))
@@ -161,7 +162,7 @@ with open("points2.txt", "w") as file:
                             touch_map[i] = n
                             file.write(f"{center}\n")
 
-                t = int(((n - touch_map[i]) / THRESHOLD) * 255)
+                t = int(((n - touch_map[i]) / THRESHOLD) * 255)  # color of the circle: linearly related to the given threshold
                 if t > 255:
                     t = 255
                 r = int(region.length // 12)  # min(region[2] - region[0], region[3] - region[1]) // 4  # circle only fills half of the region
