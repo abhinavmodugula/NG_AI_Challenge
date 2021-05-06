@@ -120,7 +120,7 @@ with open("points2.txt", "w") as file:
                 #     touch_map[i] = THRESHOLD + 1
 
 
-            # Actual detection. Variable boxes contains the bounding box cordinates for hands detected,
+            # Old detection. Variable boxes contains the bounding box cordinates for hands detected,
             # while scores contains the confidence for each of these boxes.
             # Hint: If len(boxes) > 1 , you may assume you have found atleast one hand (within your score threshold)
 
@@ -134,7 +134,7 @@ with open("points2.txt", "w") as file:
             #                                  image_np)
             # print(touches)
             # print(regions)
-            image_np.flags.writeable = False
+            image_np.flags.writeable = False  # makes detection more efficient
             result = hands.process(image_np)
             image_np.flags.writeable = True
 
@@ -143,7 +143,7 @@ with open("points2.txt", "w") as file:
                     for (a, b) in zip(i, i[1:]):
                         cv2.line(image_np, (int(a.x), int(a.y)), (int(b.x), int(b.y)), (255, 0, 0), 2)
 
-            if result.multi_hand_landmarks:
+            if result.multi_hand_landmarks:  # draw dots & lines on detected hands
                 for hand_landmarks in result.multi_hand_landmarks:
                     mp_drawing.draw_landmarks(
                         image_np, hand_landmarks, mp_hands.HAND_CONNECTIONS)
@@ -153,7 +153,7 @@ with open("points2.txt", "w") as file:
             for i, (ir, region) in enumerate(zip(intregions, regions)):
                 if result.multi_hand_landmarks: # for each region, for each hand, check if it's in the region
                     for r in result.multi_hand_landmarks:
-                        c = r.landmark[9]
+                        c = r.landmark[9]  # 9th landmark is the center of the hand
                         center = (int(c.x * im_width), int(c.y * im_height))
                         print(center)
                         cv2.circle(image_np, center, 20, (0, 0, 255), 10)
@@ -174,7 +174,7 @@ with open("points2.txt", "w") as file:
                 draw_region(image_np, ir)
 
             alpha = 0.4
-            image_np = cv2.addWeighted(overlay, alpha, image_np, 1 - alpha, 0)
+            image_np = cv2.addWeighted(overlay, alpha, image_np, 1 - alpha, 0)  # overlay dots so it looks cooler :)
             #
             # # Calculate Frames per second (FPS)
             # num_frames += 1
