@@ -27,10 +27,10 @@ regions = []
 intregions = []
 touch_map = {}
 
-mp_drawing = mp.solutions.drawing_utils
+mp_drawing = mp.solutions.drawing_utils #load in the detection API
 mp_hands = mp.solutions.hands
 
-W_NAME = "Single-Threaded Detection"
+W_NAME = "Single-Threaded Detection" #name for the displayed window
 
 def start_select_roi(img):
     """
@@ -41,6 +41,11 @@ def start_select_roi(img):
     touches = []
 
     def mouse_fn(event, x, y, flags, param):
+        """
+        Function to process the user's
+        mouse inputs
+
+        """
         global regions, touch_map
 
         if event != 1:  # left mouse button
@@ -109,7 +114,7 @@ cv2.namedWindow(W_NAME)
 
 THRESHOLD = 25  # number of seconds after which touches don't count anymore
 
-with open("points2.txt", "w") as file:
+with open("points2.txt", "w") as file: #log file
     with mp_hands.Hands(
           static_image_mode=True,
           max_num_hands=2,
