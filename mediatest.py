@@ -3,6 +3,12 @@ import mediapipe as mp
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
 
+"""
+Simple script to test if the mediapipe
+detection API works on our device
+"""
+
+
 # For webcam input:
 cap = cv2.VideoCapture(0)
 with mp_hands.Hands(

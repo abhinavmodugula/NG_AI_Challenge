@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat May  1 16:09:51 2021
+Script to test the UI component only
+of the code that lets a user select multiple
+regions from a frame.
 
-@author: modugar1
+This code has been migrated to main.py
 """
 
 

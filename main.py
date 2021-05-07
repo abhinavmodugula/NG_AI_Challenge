@@ -6,6 +6,22 @@ import time
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
+"""
+Code created for the Northrup Grumman AI Challenge
+Team 6
+Simon C., Abhinav M., Sameer H.
+
+This code runs the live simulator where the webcam
+input from any device can be used. This script will
+first allow a user to select the regions in the first frame.
+Then, we run a live detection of any hands that touch a surface.
+When a hand touches a region of interest, that region will
+chnage color from green to red. It will transition back after a set 
+amount of time that the user can define.
+
+The hand detection model is through the mediapipe ML API
+"""
+
 global regions, touch_map, touches, intregions
 regions = []
 intregions = []
@@ -19,7 +35,7 @@ W_NAME = "Single-Threaded Detection"
 def start_select_roi(img):
     """
     Allows the user to select which areas of the image to
-    monitor
+    monitor. Multiple regions can be selected
     """
     global touches
     touches = []
